@@ -65,7 +65,7 @@ module renaming_map import ariane_pkg::*; #(
             issue_q.sbe.rs1[PHYS_REG_WIDTH-1:0] = mapping[rs1[ARCH_REG_WIDTH-1:0]];
             issue_q.sbe.rs2[PHYS_REG_WIDTH-1:0] = mapping[rs2[ARCH_REG_WIDTH-1:0]];
             issue_q.sbe.rd[PHYS_REG_WIDTH-1:0] = 0;
-            if (rd != 0) for (i = 1; i < PHYS_NUM_REGS; ++i) begin
+            if (rd != 0) for (int i = 1; i < PHYS_NUM_REGS; ++i) begin
                 if (free_list[i] == 0) begin
                     issue_q.sbe.rd[PHYS_REG_WIDTH-1:0] = i;
                     free_list[i] <= 1;
