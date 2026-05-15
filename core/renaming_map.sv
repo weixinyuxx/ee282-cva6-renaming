@@ -34,14 +34,19 @@ module renaming_map import ariane_pkg::*; #(
     logic [PHYS_REG_WIDTH-1:0] rd;
 
     // TODO: ADD STRUCTURES TO EXECUTE REGISTER RENAMING
+    typedef logic [PHYS_REG_WIDTH-1:0] PRN;
+    logic [PHYS_NUM_REGS-1:0] free_list; // prn -> used/unused
+    PRN [ARCH_NUM_REGS-1:0] mapping; // arn -> prn (0 as invalid)
+    PRN [PHYS_NUM_REGS-1:0] deallocate; // 0 if nothing to deallocate
 
     // Positive clock edge used for renaming new instructions
     always @(posedge clk_i, negedge rst_ni) begin
         // Processor reset: revert renaming state to reset conditions    
         if (~rst_ni) begin
-
             // TODO: ADD LOGIC TO RESET RENAMING STATE
-    
+            free_list <= '0;
+            mapping <= '0;
+            deallocate <= '0;
         // New incoming valid instruction to rename   
         end else if (fetch_entry_ready_i && issue_n.valid) begin
             // Get values of registers in new instruction
@@ -57,9 +62,18 @@ module renaming_map import ariane_pkg::*; #(
 
             // TODO: ADD LOGIC TO RENAME OUTGOING INSTRUCTION
             // The registers of the outgoing instruction issue_q can be set like so:
-            // issue_q.sbe.rs1[PHYS_REG_WIDTH-1:0] = your new rs1 register value;
-            // issue_q.sbe.rs2[PHYS_REG_WIDTH-1:0] = your new rs2 register value;
-            // issue_q.sbe.rd[PHYS_REG_WIDTH-1:0] = your new rd register value;
+            issue_q.sbe.rs1[PHYS_REG_WIDTH-1:0] = mapping[rs1[ARCH_REG_WIDTH-1:0]];
+            issue_q.sbe.rs2[PHYS_REG_WIDTH-1:0] = mapping[rs2[ARCH_REG_WIDTH-1:0]];
+            issue_q.sbe.rd[PHYS_REG_WIDTH-1:0] = 0;
+            if (rd != 0) for (i = 1; i < PHYS_NUM_REGS; ++i) begin
+                if (free_list[i] == 0) begin
+                    issue_q.sbe.rd[PHYS_REG_WIDTH-1:0] = i;
+                    free_list[i] <= 1;
+                    deallocate[i] <= mapping[rd];
+                    mapping[rd] <= i;
+                    break;
+                end
+            end
     
         // If there is no new instruction this clock cycle, simply pass on the
         // incoming instruction without renaming
@@ -75,9 +89,9 @@ module renaming_map import ariane_pkg::*; #(
             // If there is a new committing instruction and its prd is not pr0,
             // execute register deallocation logic to reuse physical registers
             if (we_gp_i && waddr_i != 0) begin
-        
                 // TODO: IMPLEMENT REGISTER DEALLOCATION LOGIC    
-
+                free_list[deallocate[waddr_i]] <= 0; // unused
+                deallocate[waddr_i] <= 0;
             end
         end
     end
